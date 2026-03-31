@@ -385,7 +385,12 @@ async function connectWithFallback() {
   }
 }
 
-connectWithFallback();
+// Allow skipping DB connection for local testing by setting SKIP_DB=true
+if (process.env.SKIP_DB && process.env.SKIP_DB.toString() === 'true') {
+  console.log('⚠️ SKIP_DB=true — saut de la connexion MongoDB pour tests locaux');
+} else {
+  connectWithFallback();
+}
 
 // ========================================
 // MODÈLES (SCHÉMAS)
