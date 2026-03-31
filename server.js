@@ -229,6 +229,46 @@ app.use(cors({
   credentials: true
 }));
 
+// Middleware to safely read raw request body for API routes and normalize
+// It prevents body-parser JSON errors when clients send urlencoded payloads
+app.use((req, res, next) => {
+  // Only handle API POST/PUT/PATCH where body may be present
+  if (!req.path.startsWith('/api') || !['POST', 'PUT', 'PATCH'].includes(req.method)) return next();
+
+  let data = '';
+  req.setEncoding('utf8');
+
+  req.on('data', chunk => { data += chunk; });
+  req.on('end', () => {
+    if (!data) return next();
+
+    // If body already parsed by some middleware, skip
+    if (req.body && Object.keys(req.body).length > 0) return next();
+
+    // Try parse JSON first
+    try {
+      req.body = JSON.parse(data);
+      // mark as parsed to avoid body-parser attempting again
+      req._body = true;
+      return next();
+    } catch (e) {
+      // If not JSON, try urlencoded (email=test@...)
+      try {
+        const qs = require('querystring');
+        req.body = qs.parse(data);
+        req._body = true;
+        return next();
+      } catch (e2) {
+        // leave raw data available
+        req.rawBody = data;
+        return next();
+      }
+    }
+  });
+  // In case no data events (empty body)
+  req.on('error', () => next());
+});
+
 app.use(express.json());
 // Supporter aussi les bodies encodés en x-www-form-urlencoded
 app.use(express.urlencoded({ extended: true }));
@@ -735,6 +775,16 @@ app.post('/api/auth/register', async (req, res) => {
 
 // Connexion + OTP
 app.post('/api/auth/login', async (req, res) => {
+  // DEBUG LOG: afficher les headers et le body tel qu'arrivé
+  console.log('\n=== LOGIN ROUTE RECEIVED REQUEST ===');
+  console.log('Headers:', JSON.stringify(req.headers));
+  try {
+    console.log('Raw body type:', typeof req.body);
+    console.log('Raw body value:', req.body);
+  } catch (e) {
+    console.log('Erreur affichage body:', e);
+  }
+
   const { email } = req.body;
   const user = await User.findOne({ email });
   if (!user) return res.status(400).json({ message: 'Utilisateur non trouvé' });
