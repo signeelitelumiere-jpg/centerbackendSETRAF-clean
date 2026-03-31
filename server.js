@@ -127,7 +127,7 @@ if (process.env.BASE_URL) {
   console.log(`🌐 URL de base définie via variable d'environnement: ${BASE_URL}`);
 } else if (process.env.NODE_ENV === 'production' && process.env.RENDER) {
   // En production sur Render, utiliser l'URL Render
-  BASE_URL = process.env.RENDER_EXTERNAL_URL || 'https://center-backend-v9rf.onrender.com';
+  BASE_URL = process.env.RENDER_EXTERNAL_URL || 'https://centerbackendsetraf-clean.onrender.com';
   console.log(`🌐 Mode PRODUCTION détecté (Render)`);
 } else {
   // En développement, utiliser l'IP locale

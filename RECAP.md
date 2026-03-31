@@ -92,7 +92,7 @@ cd backend
 ### Étape 4 : Récupérer l'URI Render
 Après déploiement, Render donnera une URL comme :
 ```
-https://center-backend-nodejs.onrender.com
+https://centerbackendsetraf-clean.onrender.com
 ```
 
 ### Étape 5 : Mettre à Jour Flutter

@@ -52,7 +52,7 @@
 
 Une fois déployé, Render vous donnera une URL comme :
 ```
-https://center-backend-nodejs.onrender.com
+https://centerbackendsetraf-clean.onrender.com
 ```
 
 **⚠️ Important :** Les services gratuits Render s'arrêtent après 15 minutes d'inactivité. Le premier appel après inactivité prendra ~30 secondes (démarrage à froid).
@@ -61,10 +61,10 @@ https://center-backend-nodejs.onrender.com
 
 ```bash
 # Test de santé
-curl https://center-backend-nodejs.onrender.com/api/server-info
+curl https://centerbackendsetraf-clean.onrender.com/api/server-info
 
 # Test de connexion admin
-curl -X POST https://center-backend-nodejs.onrender.com/api/auth/admin-login \
+curl -X POST https://centerbackendsetraf-clean.onrender.com/api/auth/admin-login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"votre_mot_de_passe"}'
 ```
@@ -76,7 +76,7 @@ Une fois que vous avez l'URI Render, mettez à jour `lib/config/server_config.da
 ```dart
 class ServerConfig {
   static const List<String> serverIPs = [
-    'https://center-backend-nodejs.onrender.com', // URI Render fixe
+    'https://centerbackendsetraf-clean.onrender.com', // URI Render fixe
     'http://192.168.1.66:5000', // IP locale (fallback)
   ];
 }
