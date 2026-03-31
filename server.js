@@ -23,51 +23,57 @@ const {
 } = require('./cloudynary');
 
 // ========================================
-// INITIALISATION FIREBASE ADMIN SDK
+// INITIALISATION FIREBASE ADMIN SDK (optionnelle)
+// Ne s'initialise que si USE_FIREBASE=true pour éviter les plantages
+// quand le projet n'utilise pas Firebase en local.
 // ========================================
 let firebaseInitialized = false;
 
-try {
-  let serviceAccount;
-  
-  // Option 1: Variable d'environnement JSON (pour Render/Production)
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    console.log('📝 Chargement Firebase depuis variable d\'environnement FIREBASE_SERVICE_ACCOUNT');
-    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-  }
-  // Option 2: Ancienne variable pour compatibilité
-  else if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    console.log('📝 Chargement Firebase depuis variable d\'environnement FIREBASE_SERVICE_ACCOUNT_JSON');
-    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-  } 
-  // Option 3: Fichier local (pour développement)
-  else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
-    const serviceAccountPath = path.join(__dirname, process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
+if (process.env.USE_FIREBASE && process.env.USE_FIREBASE.toString() === 'true') {
+  try {
+    let serviceAccount;
     
-    if (fs.existsSync(serviceAccountPath)) {
-      console.log('📝 Chargement Firebase depuis fichier:', serviceAccountPath);
-      serviceAccount = require(serviceAccountPath);
-    } else {
-      console.warn('⚠️ Fichier Firebase non trouvé:', serviceAccountPath);
+    // Option 1: Variable d'environnement JSON (pour Render/Production)
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      console.log('📝 Chargement Firebase depuis variable d\'environnement FIREBASE_SERVICE_ACCOUNT');
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     }
-  } else {
-    console.warn('⚠️ Aucune configuration Firebase trouvée (ni FIREBASE_SERVICE_ACCOUNT, ni FIREBASE_SERVICE_ACCOUNT_JSON, ni FIREBASE_SERVICE_ACCOUNT_PATH)');
-  }
-  
-  if (serviceAccount) {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      projectId: serviceAccount.project_id
-    });
+    // Option 2: Ancienne variable pour compatibilité
+    else if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+      console.log('📝 Chargement Firebase depuis variable d\'environnement FIREBASE_SERVICE_ACCOUNT_JSON');
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    } 
+    // Option 3: Fichier local (pour développement)
+    else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+      const serviceAccountPath = path.join(__dirname, process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
+      
+      if (fs.existsSync(serviceAccountPath)) {
+        console.log('📝 Chargement Firebase depuis fichier:', serviceAccountPath);
+        serviceAccount = require(serviceAccountPath);
+      } else {
+        console.warn('⚠️ Fichier Firebase non trouvé:', serviceAccountPath);
+      }
+    } else {
+      console.warn('⚠️ Aucune configuration Firebase trouvée (ni FIREBASE_SERVICE_ACCOUNT, ni FIREBASE_SERVICE_ACCOUNT_JSON, ni FIREBASE_SERVICE_ACCOUNT_PATH)');
+    }
     
-    firebaseInitialized = true;
-    console.log('✅ Firebase Admin SDK initialisé');
-    console.log(`   Project ID: ${serviceAccount.project_id}`);
+    if (serviceAccount) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        projectId: serviceAccount.project_id
+      });
+      
+      firebaseInitialized = true;
+      console.log('✅ Firebase Admin SDK initialisé');
+      console.log(`   Project ID: ${serviceAccount.project_id}`);
+    }
+  } catch (error) {
+    console.error('❌ Erreur initialisation Firebase:', error.message);
+    console.warn('⚠️ Les notifications push ne fonctionneront pas');
+    console.warn('💡 Ajoutez FIREBASE_SERVICE_ACCOUNT_JSON en variable d\'environnement ou placez le fichier JSON');
   }
-} catch (error) {
-  console.error('❌ Erreur initialisation Firebase:', error.message);
-  console.warn('⚠️ Les notifications push ne fonctionneront pas');
-  console.warn('💡 Ajoutez FIREBASE_SERVICE_ACCOUNT_JSON en variable d\'environnement ou placez le fichier JSON');
+} else {
+  console.log('⚠️ Firebase Admin SDK désactivé (USE_FIREBASE != true)');
 }
 
 const app = express();
