@@ -327,10 +327,65 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // CONNEXION À MONGODB
 // ========================================
 
+const dns = require('dns');
+// Optionnel: permettre d'override des DNS utilisés par Node pour résoudre les enregistrements SRV
+const dnsServersEnv = process.env.MONGO_DNS_SERVERS; // ex: "8.8.8.8,1.1.1.1"
+if (dnsServersEnv) {
+  try {
+    const servers = dnsServersEnv.split(',').map(s => s.trim()).filter(Boolean);
+    if (servers.length) {
+      console.log('🔎 Utilisation des serveurs DNS personnalisés pour la résolution SRV:', servers);
+      dns.setServers(servers);
+    }
+  } catch (e) {
+    console.warn('⚠️ Impossible de définir MONGO_DNS_SERVERS:', e.message);
+  }
+} else {
+  // Défaut résilient : utiliser des DNS publics pour éviter les erreurs c-ares sur certaines plateformes
+  try {
+    dns.setServers(['8.8.8.8', '1.1.1.1']);
+    console.log('🔎 DNS par défaut pour la résolution SRV définis sur 8.8.8.8,1.1.1.1');
+  } catch (e) {
+    // Ne pas bloquer l'application si setServers échoue
+    console.warn('⚠️ Impossible de définir les serveurs DNS par défaut:', e.message);
+  }
+}
+
 const MONGO_URI = process.env.MONGO_URI;
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('MongoDB connecté'))
-  .catch(err => console.error('Erreur MongoDB:', err));
+const MONGO_URI_FALLBACK = process.env.MONGO_URI_FALLBACK; // optional non-srv connection string
+
+async function connectWithFallback() {
+  if (!MONGO_URI) {
+    console.error('❌ MONGO_URI non défini. Veuillez définir MONGO_URI en variable d\'environnement.');
+    return process.exit(1);
+  }
+
+  try {
+    await mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true, serverSelectionTimeoutMS: 10000 });
+    console.log('MongoDB connecté (MONGO_URI)');
+    return;
+  } catch (err) {
+    console.error('Erreur MongoDB (MONGO_URI):', err && err.message ? err.message : err);
+
+    // Si une URI fallback est fournie, tenter de s'y connecter (ex: chaîne non-SRV fournie par Atlas)
+    if (MONGO_URI_FALLBACK && MONGO_URI_FALLBACK !== MONGO_URI) {
+      try {
+        console.log('🔁 Tentative de connexion avec MONGO_URI_FALLBACK');
+        await mongoose.connect(MONGO_URI_FALLBACK, { useNewUrlParser: true, useUnifiedTopology: true, serverSelectionTimeoutMS: 10000 });
+        console.log('MongoDB connecté (MONGO_URI_FALLBACK)');
+        return;
+      } catch (err2) {
+        console.error('Erreur MongoDB (MONGO_URI_FALLBACK):', err2 && err2.message ? err2.message : err2);
+      }
+    }
+
+    // Enfin, afficher conseils utiles
+    console.error('\nConseils:\n - Vérifiez que MONGO_URI est correct et encodé (encodeURIComponent pour le mot de passe).\n - Si vous utilisez mongodb+srv:// et que la résolution SRV échoue, définissez MONGO_DNS_SERVERS="8.8.8.8,1.1.1.1" ou fournissez une MONGO_URI_FALLBACK standard (mongodb://host1:27017,host2:27017/...).\n');
+    process.exit(1);
+  }
+}
+
+connectWithFallback();
 
 // ========================================
 // MODÈLES (SCHÉMAS)
