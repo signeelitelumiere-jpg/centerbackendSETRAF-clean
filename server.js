@@ -230,6 +230,34 @@ app.use(cors({
 }));
 
 app.use(express.json());
+// Supporter aussi les bodies encodés en x-www-form-urlencoded
+app.use(express.urlencoded({ extended: true }));
+
+// Middleware: normaliser le corps des requêtes (string -> objet) pour tolérer
+// les POST envoyés en application/x-www-form-urlencoded ou quand le parser
+// retourne une string inattendue.
+app.use((req, res, next) => {
+  try {
+    if (req.body && typeof req.body === 'string') {
+      // Essayer JSON d'abord
+      try {
+        req.body = JSON.parse(req.body);
+      } catch (e) {
+        // Puis tenter le parsing urlencoded
+        try {
+          const qs = require('querystring');
+          req.body = qs.parse(req.body);
+        } catch (e2) {
+          // Laisser tel quel si impossible
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Erreur normalisation body:', e);
+  }
+
+  next();
+});
 
 // Middleware: convertir les erreurs de parsing JSON et autres erreurs en JSON
 app.use((err, req, res, next) => {
