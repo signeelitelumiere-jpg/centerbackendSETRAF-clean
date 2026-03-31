@@ -231,6 +231,21 @@ app.use(cors({
 
 app.use(express.json());
 
+// Middleware: convertir les erreurs de parsing JSON et autres erreurs en JSON
+app.use((err, req, res, next) => {
+  // Si c'est une requête API, toujours répondre en JSON
+  try {
+    if (req && req.path && req.path.startsWith('/api')) {
+      console.error('🔧 Erreur middleware API détectée:', err && err.message ? err.message : err);
+      const statusCode = err && err.status ? err.status : 400;
+      return res.status(statusCode).json({ message: err && err.message ? err.message : 'Bad Request' });
+    }
+  } catch (e) {
+    console.error('Erreur dans le middleware de gestion des erreurs:', e);
+  }
+  return next(err);
+});
+
 // Servir les fichiers statiques (uploads) - Backup local uniquement
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
