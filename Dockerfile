@@ -7,7 +7,7 @@ LABEL description="Backend Node.js pour CENTER - API REST avec MongoDB"
 
 # Variables d'environnement
 ENV NODE_ENV=production \
-    PORT=5000
+    PORT=7823
 
 # Créer le répertoire de travail
 WORKDIR /app
@@ -30,11 +30,12 @@ COPY controllers/ ./controllers/
 RUN mkdir -p uploads storage/temp
 
 # Exposer le port
-EXPOSE 5000
+EXPOSE 7823
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:5000/api/server-info', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+    # Use runtime PORT (default 7823) for healthcheck to avoid hardcoded 5000
+    CMD node -e "const p = process.env.PORT || 7823; require('http').get(`http://localhost:${p}/api/server-info`, (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Commande de démarrage
 CMD ["node", "server.js"]

@@ -137,7 +137,7 @@ if (process.env.BASE_URL) {
   console.log(`🌐 Mode PRODUCTION détecté (Render)`);
 } else {
   // En développement, utiliser l'IP locale
-  BASE_URL = `http://${SERVER_IP}:${process.env.PORT || 5000}`;
+  BASE_URL = `http://${SERVER_IP}:${process.env.PORT || 7823}`;
   console.log(`🌐 Mode DÉVELOPPEMENT détecté`);
 }
 
@@ -178,7 +178,7 @@ app.use((req, res, next) => {
           }
           
           // Sinon, remplacer par la nouvelle IP
-          const newPort = port || '5000';
+          const newPort = port || '7823';
           const newUrl = `http://${SERVER_IP}:${newPort}`;
           
           // Log de la correction (désactiver en production pour performance)
@@ -671,12 +671,20 @@ const VirtualIDCard = mongoose.model('VirtualIDCard', virtualIDCardSchema);
 // ========================================
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: process.env.EMAIL_SERVICE || 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
   }
 });
+
+// Verify transporter on startup and log a friendly hint if verification fails
+transporter.verify()
+  .then(() => console.log('✅ SMTP transporter ready'))
+  .catch((err) => {
+    console.warn('⚠️ SMTP transporter verification failed. Emails may not send.');
+    console.warn('⚠️ SMTP hint:', err && err.message ? err.message : err);
+  });
 
 const generateOTP = () => crypto.randomInt(100000, 999999).toString();
 
@@ -4035,7 +4043,7 @@ app.get('/api/server-info', (req, res) => {
   res.json({
     serverIp: SERVER_IP,
     baseUrl: BASE_URL,
-    port: process.env.PORT || 5000,
+    port: process.env.PORT || 7823,
     timestamp: new Date().toISOString()
   });
 });
@@ -4098,7 +4106,7 @@ app.post('/api/admin/fix-employee-names', verifyToken, async (req, res) => {
 const virtualIDCardRoutes = require('./routes/virtualIDCard');
 app.use('/api/virtual-id-cards', virtualIDCardRoutes);
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 7823;
 const HOST = '0.0.0.0';
 
 const server = app.listen(PORT, HOST, () => {
@@ -4236,15 +4244,6 @@ app.post('/api/employees/:id/send-email', verifyToken, async (req, res) => {
       return res.status(400).json({ message: 'Sujet et message requis' });
     }
 
-    // Configuration du transporteur email
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER || 'your-email@gmail.com',
-        pass: process.env.EMAIL_PASS || 'your-app-password'
-      }
-    });
-
     const mailOptions = {
       from: process.env.EMAIL_USER || 'your-email@gmail.com',
       to: employee.email,
@@ -4266,12 +4265,29 @@ app.post('/api/employees/:id/send-email', verifyToken, async (req, res) => {
       `
     };
 
-    await transporter.sendMail(mailOptions);
-    
-    res.json({ 
-      message: 'Email envoyé avec succès',
-      to: employee.email 
-    });
+    try {
+      await transporter.sendMail(mailOptions);
+      res.json({ 
+        message: 'Email envoyé avec succès',
+        to: employee.email 
+      });
+    } catch (sendErr) {
+      console.error('Erreur envoi email (sendMail):', sendErr && sendErr.stack ? sendErr.stack : sendErr);
+      // Detect common auth/login errors and give actionable hint
+      const msg = (sendErr && sendErr.message) ? sendErr.message : String(sendErr);
+      if (/535|Invalid login|Authentication failed|BadCredentials/i.test(msg)) {
+        return res.status(500).json({
+          message: "Erreur lors de l'envoi de l'email: échec d'authentification SMTP.",
+          hint: "Si vous utilisez Gmail, activez la vérification en 2 étapes et créez un App Password puis mettez à jour EMAIL_PASS dans .env",
+          error: msg
+        });
+      }
+
+      return res.status(500).json({ 
+        message: 'Erreur lors de l\'envoi de l\'email',
+        error: msg
+      });
+    }
   } catch (err) {
     console.error('Erreur envoi email:', err);
     res.status(500).json({ 
